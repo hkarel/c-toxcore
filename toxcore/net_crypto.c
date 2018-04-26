@@ -613,12 +613,13 @@ static IP_Port return_ip_port_connection(Net_Crypto *c, int crypt_connection_id)
 
     uint64_t current_time = unix_time();
     bool v6 = 0, v4 = 0;
+    const uint32_t udp_direct_timeout = UDP_DIRECT_TIMEOUT + UDP_DIRECT_TIMEOUT_OVERLAP;
 
-    if ((UDP_DIRECT_TIMEOUT + conn->direct_lastrecv_timev4) > current_time) {
+    if ((udp_direct_timeout + conn->direct_lastrecv_timev4) >= current_time) {
         v4 = 1;
     }
 
-    if ((UDP_DIRECT_TIMEOUT + conn->direct_lastrecv_timev6) > current_time) {
+    if ((udp_direct_timeout + conn->direct_lastrecv_timev6) >= current_time) {
         v6 = 1;
     }
 
@@ -2884,12 +2885,13 @@ unsigned int crypto_connection_status(const Net_Crypto *c, int crypt_connection_
         *direct_connected = 0;
 
         uint64_t current_time = unix_time();
+        const uint32_t udp_direct_timeout = UDP_DIRECT_TIMEOUT + UDP_DIRECT_TIMEOUT_OVERLAP;
 
-        if ((UDP_DIRECT_TIMEOUT + conn->direct_lastrecv_timev4) > current_time) {
+        if ((udp_direct_timeout + conn->direct_lastrecv_timev4) >= current_time) {
             *direct_connected = 1;
         }
 
-        if ((UDP_DIRECT_TIMEOUT + conn->direct_lastrecv_timev6) > current_time) {
+        if ((udp_direct_timeout + conn->direct_lastrecv_timev6) >= current_time) {
             *direct_connected = 1;
         }
     }

@@ -63,6 +63,7 @@
 
 /* The timeout of no received UDP packets before the direct UDP connection is considered dead. */
 #define UDP_DIRECT_TIMEOUT ((MAX_NUM_SENDPACKET_TRIES * CRYPTO_SEND_PACKET_INTERVAL) / 1000)
+#define UDP_DIRECT_TIMEOUT_OVERLAP 2
 
 #define PACKET_ID_PADDING 0 /* Denotes padding */
 #define PACKET_ID_REQUEST 1 /* Used to request unreceived packets */

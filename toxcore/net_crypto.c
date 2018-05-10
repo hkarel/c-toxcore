@@ -1540,10 +1540,6 @@ static int handle_data_packet_core(Net_Crypto *c, int crypt_connection_id, const
         }
     }
 
-    if (real_data[0] == PACKET_ID_KEEPALIVE) {
-        return 0;
-    }
-
     if (real_data[0] == PACKET_ID_KILL) {
         connection_kill(c, crypt_connection_id, userdata);
         return 0;
@@ -1559,7 +1555,10 @@ static int handle_data_packet_core(Net_Crypto *c, int crypt_connection_id, const
         }
     }
 
-    if (real_data[0] == PACKET_ID_REQUEST) {
+    if (real_data[0] == PACKET_ID_KEEPALIVE) {
+        // Empty body
+    }
+    else if (real_data[0] == PACKET_ID_REQUEST) {
         uint64_t rtt_time;
 
         if (udp) {

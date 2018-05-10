@@ -155,6 +155,26 @@ struct Net_Crypto {
     BS_LIST ip_port_list;
 };
 
+static uint8_t toHexChar(uint8_t c)
+{
+    char a1 = '0';
+    if  (c < 10)
+        return (uint8_t) (a1 + c);
+    else
+        return (uint8_t) ('a' + (c - 10));
+}
+
+void uuidToString(const uint8_t uuid[16], uint8_t result[40])
+{
+    uint8_t* r = result;
+    for (int i = 0; i < 16; ++i)
+    {
+        (*r++) = toHexChar((uuid[i] >> 4) & 0x0f);
+        (*r++) = toHexChar(uuid[i] & 0x0f);
+    }
+    *r = '\0';
+}
+
 const uint8_t *nc_get_self_public_key(const Net_Crypto *c)
 {
     return c->self_public_key;
@@ -664,6 +684,28 @@ static int send_packet_to(Net_Crypto *c, int crypt_connection_id, const uint8_t 
 
         if (direct_connected) {
             if ((uint32_t)sendpacket(dht_get_net(c->dht), ip_port, data, length) == length) {
+
+                uint8_t res[41];
+                uuidToString(conn->public_key, res);
+
+                char pt[16] = {0};
+                if (data[0] == NET_PACKET_CRYPTO_HS)
+                {
+                    strcpy(pt, "HS");
+                }
+                else if (data[0] == NET_PACKET_COOKIE_REQUEST)
+                {
+                    strcpy(pt, "COOKIE_REQUEST");
+                }
+                else if (data[0] == NET_PACKET_CRYPTO_DATA)
+                {
+                    strcpy(pt, "CRYPTO_DATA");
+                }
+
+                int l = length;
+                LOGGER_DEBUG(0, "---- send_packet_to    | PK: %s %s SZ: %i 1--", res, pt, l);
+                //LOGGER_DEBUG(0, "---- send_packet_to    | PK: %s %s 1--", res, ip_str);
+
                 pthread_mutex_unlock(&conn->mutex);
                 return 0;
             }
@@ -678,6 +720,27 @@ static int send_packet_to(Net_Crypto *c, int crypt_connection_id, const uint8_t 
         if ((((UDP_DIRECT_TIMEOUT / 2) + conn->direct_send_attempt_time) > current_time && length < 96)
                 || data[0] == NET_PACKET_COOKIE_REQUEST || data[0] == NET_PACKET_CRYPTO_HS) {
             if ((uint32_t)sendpacket(dht_get_net(c->dht), ip_port, data, length) == length) {
+
+                uint8_t res[41];
+                uuidToString(conn->public_key, res);
+
+                char pt[16] = {0};
+                if (data[0] == NET_PACKET_CRYPTO_HS)
+                {
+                    strcpy(pt, "HS");
+                }
+                else if (data[0] == NET_PACKET_COOKIE_REQUEST)
+                {
+                    strcpy(pt, "COOKIE_REQUEST");
+                }
+                else if (data[0] == NET_PACKET_CRYPTO_DATA)
+                {
+                    strcpy(pt, "CRYPTO_DATA");
+                }
+
+                int l = length;
+                LOGGER_DEBUG(0, "---- send_packet_to    | PK: %s %s SZ: %i 2--", res, pt, l);
+
                 direct_send_attempt = 1;
                 conn->direct_send_attempt_time = unix_time();
             }
@@ -1555,6 +1618,27 @@ static int handle_data_packet_core(Net_Crypto *c, int crypt_connection_id, const
         }
     }
 
+//---
+    char res[41] = {0};
+
+    if (real_data[0] == PACKET_ID_KEEPALIVE)
+    {
+        strcpy(res, "PACKET_ID_KEEPALIVE");
+    }
+    else if (real_data[0] == PACKET_ID_REQUEST)
+    {
+        strcpy(res, "PACKET_ID_REQUEST");
+    }
+    else
+    {
+        int ii = real_data[0];
+        sprintf(res, "%i", ii);
+    }
+
+    //LOGGER_DEBUG(0, "--- udp_handle_packet | PK: %s %s", res, pt);
+    LOGGER_DEBUG(0, "--- udp_handle_packet | PACKET_ID: %s SZ: %i", res, real_length);
+//---
+
     if (real_data[0] == PACKET_ID_KEEPALIVE) {
         // Empty body
     }
@@ -1875,6 +1959,8 @@ static int crypto_connection_add_source(Net_Crypto *c, int crypt_connection_id, 
             conn->direct_lastrecv_timev6 = unix_time();
         }
 
+        LOGGER_DEBUG(0, "--- 1");
+
         return 0;
     }
 
@@ -2099,12 +2185,14 @@ int set_direct_ip_port(Net_Crypto *c, int crypt_connection_id, IP_Port ip_port, 
             } else {
                 conn->direct_lastrecv_timev6 = unix_time();
             }
+            LOGGER_DEBUG(0, "--- 2");
         } else {
             if (ip_port.ip.family == TOX_AF_INET) {
                 conn->direct_lastrecv_timev4 = 0;
             } else {
                 conn->direct_lastrecv_timev6 = 0;
             }
+            LOGGER_DEBUG(0, "--- 3");
         }
 
         return 0;
@@ -2409,9 +2497,12 @@ static int crypto_id_ip_port(const Net_Crypto *c, IP_Port ip_port)
  */
 static int udp_handle_packet(void *object, IP_Port source, const uint8_t *packet, uint16_t length, void *userdata)
 {
+    LOGGER_DEBUG(0, "--- udp_handle_packet | ===============");
+
     if (length <= CRYPTO_MIN_PACKET_SIZE || length > MAX_CRYPTO_PACKET_SIZE) {
         return 1;
     }
+
 
     Net_Crypto *c = (Net_Crypto *)object;
     int crypt_connection_id = crypto_id_ip_port(c, source);
@@ -2425,16 +2516,45 @@ static int udp_handle_packet(void *object, IP_Port source, const uint8_t *packet
             return 1;
         }
 
+        Crypto_Connection *conn1 = get_crypto_connection(c, crypt_connection_id);
+        if (conn1)
+        {
+            uint8_t res[41];
+            uuidToString(conn1->public_key, res);
+
+            char pt[16] = {0};
+            if (packet[0] == NET_PACKET_CRYPTO_HS)
+            {
+                strcpy(pt, "HS");
+            }
+            else if (packet[0] == NET_PACKET_COOKIE_REQUEST)
+            {
+                strcpy(pt, "COOKIE_REQUEST");
+            }
+            else if (packet[0] == NET_PACKET_CRYPTO_DATA)
+            {
+                strcpy(pt, "CRYPTO_DATA");
+            }
+
+            LOGGER_DEBUG(0, "--- udp_handle_packet | PK: %s %s +++", res, pt);
+        }
+
         return 0;
     }
 
     if (handle_packet_connection(c, crypt_connection_id, packet, length, 1, userdata) != 0) {
+
+        LOGGER_DEBUG(0, "--- udp_handle_packet | -------------");
+
         return 1;
     }
 
     Crypto_Connection *conn = get_crypto_connection(c, crypt_connection_id);
 
     if (conn == nullptr) {
+
+        LOGGER_DEBUG(0, "--- udp_handle_packet | ------------- 1");
+
         return -1;
     }
 
@@ -2445,6 +2565,32 @@ static int udp_handle_packet(void *object, IP_Port source, const uint8_t *packet
     } else {
         conn->direct_lastrecv_timev6 = unix_time();
     }
+
+
+    uint8_t res[41];
+    uuidToString(conn->public_key, res);
+
+    char pt[16] = {0};
+    if (packet[0] == NET_PACKET_CRYPTO_HS)
+    {
+        strcpy(pt, "HS");
+    }
+    else if (packet[0] == NET_PACKET_COOKIE_REQUEST)
+    {
+        strcpy(pt, "COOKIE_REQUEST");
+    }
+    else if (packet[0] == NET_PACKET_CRYPTO_DATA)
+    {
+        strcpy(pt, "CRYPTO_DATA");
+    }
+
+    char ip_str[IP_NTOA_LEN];
+    ip_ntoa(&conn->ip_portv4.ip, ip_str, sizeof(ip_str));
+
+    int l = length;
+
+    //LOGGER_DEBUG(0, "--- udp_handle_packet | PK: %s %s", res, pt);
+    LOGGER_DEBUG(0, "--- udp_handle_packet | PK: %s %s SZ: %i", res, ip_str, l);
 
     pthread_mutex_unlock(&conn->mutex);
     return 0;

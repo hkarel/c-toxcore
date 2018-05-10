@@ -32,6 +32,7 @@
 #include "util.h"
 
 #include <math.h>
+#include <sodium.h>
 
 typedef struct {
     uint64_t sent_time;
@@ -937,6 +938,29 @@ static int generate_request_packet(uint8_t *data, uint16_t length, const Packets
     return cur_len;
 }
 
+/* Create a "keepalive" packet. This packet is used to support the active
+ * state of the UDP connection.
+ * Each packet has an arbitrary length not exceeding MAX_SIZE_KEEPALIVE_PACKET
+ * and is filled with random data. This is done to avoid the packets being
+ * processed through the DCCP protocol.
+ *
+ * return -1 on failure.
+ * return length of packet on success.
+*/
+static int generate_keepalive_packet(uint8_t *data, uint16_t length)
+{
+    if (length == 0) {
+        return -1;
+    }
+
+    data[0] = PACKET_ID_KEEPALIVE;
+
+    uint32_t random_len = random_u32() % MAX_SIZE_KEEPALIVE_PACKET;
+    randombytes(data + 1, random_len);
+
+    return random_len + 1;
+}
+
 /* Handle a request data packet.
  * Remove all the packets the other received from the array.
  *
@@ -1245,6 +1269,10 @@ static int send_request_packet(Net_Crypto *c, int crypt_connection_id)
     uint8_t data[MAX_CRYPTO_DATA_SIZE];
     int len = generate_request_packet(data, sizeof(data), &conn->recv_array);
 
+    if (len == 1) {
+        len = generate_keepalive_packet(data, sizeof(data));
+    }
+
     if (len == -1) {
         return -1;
     }
@@ -1510,6 +1538,10 @@ static int handle_data_packet_core(Net_Crypto *c, int crypt_connection_id, const
         if (real_length == 0) {
             return -1;
         }
+    }
+
+    if (real_data[0] == PACKET_ID_KEEPALIVE) {
+        return 0;
     }
 
     if (real_data[0] == PACKET_ID_KILL) {

@@ -62,11 +62,14 @@
 #define MAX_NUM_SENDPACKET_TRIES 8
 
 /* The timeout of no received UDP packets before the direct UDP connection is considered dead. */
-#define UDP_DIRECT_TIMEOUT 10
+#define UDP_DIRECT_TIMEOUT 8
 
-#define PACKET_ID_PADDING 0 /* Denotes padding */
-#define PACKET_ID_REQUEST 1 /* Used to request unreceived packets */
-#define PACKET_ID_KILL    2 /* Used to kill connection */
+#define PACKET_ID_PADDING   0 /* Denotes padding */
+#define PACKET_ID_REQUEST   1 /* Used to request unreceived packets */
+#define PACKET_ID_KILL      2 /* Used to kill connection */
+#define PACKET_ID_KEEPALIVE 3 /* Used to keep alive of UDP connection */
+
+#define MAX_SIZE_KEEPALIVE_PACKET 50
 
 /* Packet ids 0 to CRYPTO_RESERVED_PACKETS - 1 are reserved for use by net_crypto. */
 #define CRYPTO_RESERVED_PACKETS 16
